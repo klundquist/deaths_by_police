@@ -1,0 +1,360 @@
+---
+title: "FE More EDA"
+output: html_notebook
+---
+```{r}
+library(tidyverse)
+library(ggplot2)
+deaths = read.csv("fe_clean.csv", stringsAsFactors = TRUE)
+```
+```{r}
+deaths
+```
+```{r}
+deaths_year <- deaths %>% 
+  group_by(Year) %>% 
+  summarise(count = n())
+deaths_year
+```
+```{r}
+require(stats)
+reg<-lm(count ~ Year, data = deaths_year)
+summary(reg)
+```
+```{r}
+deaths_year %>% filter(Year == 2020)
+```
+
+```{r}
+#remove 2100 value from Year
+deaths <- deaths %>% filter(Year != 2100)
+deaths %>% 
+  group_by(Year) %>% 
+  summarise(count = n()) %>% 
+  ggplot() +
+  geom_bar(aes(x = Year, y = count), stat='identity', fill = "orange") +
+  ylab("Number of Deaths") +
+  ggtitle("Fatal Encounters with Police by Year") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_abline(intercept = -96912.2, slope = 48.9, color="black", 
+                 linetype="dashed", size=.5)
+```
+```{r}
+deaths %>% 
+  group_by(Month) %>% 
+  summarise(count = n()) %>% 
+  ggplot() +
+  geom_bar(aes(x = Month, y = count), stat='identity')
+```
+```{r}
+mean_age <- mean(deaths$Age, na.rm = T)
+deaths %>% 
+  filter(!is.na(Deadly.force)) %>% 
+  ggplot() + 
+  geom_density(aes(Age)) +
+  ylab("Density by Age") +
+  ggtitle("Distribution of Age for Fatal Encounters") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_vline(xintercept = mean_age, linetype="dashed", 
+                color = "blue", size=0.5) +
+  geom_vline(xintercept = median_age, linetype="dashed", 
+                color = "red", size=0.5)
+```
+```{r}
+deaths %>% 
+  filter(!is.na(Gender) & !is.na(Deadly.force)) %>% 
+  ggplot() + 
+  geom_density(aes(Age, color = Gender)) +
+  facet_wrap( ~ Deadly.force)
+```
+
+```{r}
+summary(deaths)
+```
+
+```{r}
+no_nas <- na.omit(deaths)
+no_nas
+write.csv(no_nas, file = "no_NAs.csv", row.names = FALSE)
+```
+
+```{r}
+deaths %>%
+  filter(!is.na(Gender) & Gender != "Transgender") %>% 
+  group_by(Gender) %>% 
+  summarise(count = n()) %>% 
+  mutate(perc = count/sum(count)) %>% 
+  ggplot() +
+  geom_bar(aes(x=Gender, y= perc*100, fill=Gender), stat='identity') +
+  ylab("Percent (%)") +
+  ggtitle("Distribution of Gender for Fatal Encounters") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+```
+```{r}
+deaths %>%
+  filter(!is.na(Gender) & Gender != "Transgender") %>% 
+  group_by(Gender) %>% 
+  summarise(count = n()) %>% 
+  mutate(perc = count/sum(count))
+```
+
+
+
+```{r}
+deaths %>% 
+  ggplot() + 
+  geom_bar(aes)
+
+deaths %>%
+  filter(!is.na(Gender) & Deadly.force == 1) %>% 
+  group_by(Gender) %>% 
+  summarise(count = n()) %>% 
+  mutate(perc = count/sum(count)) %>% 
+  ggplot() +
+  geom_bar(aes(x=Gender, y= perc*100, fill=Gender), stat='identity')
+  #facet_wrap( ~ Deadly.force)
+  #labs(y = "Percent (%)")
+```
+```{r}
+deaths %>%
+  filter(!is.na(Gender) & Deadly.force == 0) %>% 
+  group_by(Gender) %>% 
+  summarise(count = n()) %>% 
+  mutate(perc = count/sum(count)) %>% 
+  ggplot() + 
+  geom_bar(aes(x=Gender, y= perc*100, fill=Gender), stat='identity') +
+  ylab("Percent (%)") +
+  ggtitle("Distribution of Gender for Fatal Encounters") +
+  theme(plot.title = element_text(hjust = 0.5)) -> g_plot
+g_plot
+```
+```{r}
+df <- data.frame(x=factor(c(TRUE,TRUE,TRUE,TRUE,TRUE,FALSE,FALSE,FALSE)))
+
+p <- ggplot(df, aes(x = x, fill = x)) +
+  geom_bar()
+
+pct_format = scales::percent_format(accuracy = .1)
+
+p <- g_plot + geom_text(
+    aes(
+      label = sprintf(
+        '%d (%s)',
+        ..count..,
+        pct_format(..count.. / sum(..count..))
+      )
+    ),
+    stat = 'count',
+    nudge_y = .2,
+    colour = 'royalblue',
+    size = 5
+  )
+p
+
+deaths %>% 
+  filter(!is.na(Gender) & Gender != "Transgender") %>% 
+  ggplot(aes(x = Gender)) +
+  geom_bar(stat = "count", aes(fill = Gender)) + 
+  stat_count(geom = "text", colour = "white", size = 8,
+  aes(label = pct_format(..count.. / sum(..count..))), position=position_stack(vjust=0.5))
+```
+```{r}
+deaths %>% 
+  ggplot(aes(x = Race)) +
+  geom_bar(stat = "count", aes(fill = Race)) + 
+  stat_count(geom = "text", colour = "white", size = 5,
+  aes(label = pct_format(..count.. / sum(..count..))), position=position_stack(vjust=0.5)) +
+  coord_flip()
+```
+
+
+
+
+```{r}
+deaths %>%
+  filter(!is.na(Gender) & Deadly.force == 0) %>% 
+  group_by(Gender) %>% 
+  summarise(count = n()) %>% 
+  mutate(perc = 100*count/sum(count))
+```
+
+
+```{r}
+deaths %>%
+  filter(!is.na(Race) & Race != "Middle Eastern") %>% 
+  group_by(Race) %>% 
+  summarise(count = n()) %>% 
+  mutate(perc = count/sum(count)) %>% 
+  ggplot() +
+  geom_bar(aes(x=reorder(Race, perc), y= perc*100, fill=Race), stat='identity') +
+  coord_flip() +
+  ylab("Percent (%)") +
+  xlab("Race")
+```
+```{r}
+deaths %>%
+  filter(!is.na(Race) & Race != "Middle Eastern") %>% 
+  group_by(Race) %>% 
+  summarise(count = n()) %>% 
+  mutate(perc = 100*count/sum(count)) %>% 
+  arrange(desc(perc))
+```
+
+
+```{r}
+deaths %>%
+  filter(!is.na(Cause.of.Death)) %>% 
+  group_by(Cause.of.Death) %>% 
+  summarise(count = n()) %>% 
+  mutate(perc = count/sum(count)) %>% 
+  ggplot() +
+  geom_bar(aes(x=reorder(Cause.of.Death, perc), y= perc*100, fill=Cause.of.Death), stat='identity') +
+  coord_flip() +
+  ylab("Percent (%)") +
+  xlab("Cause of Death")
+```
+```{r}
+deaths %>%
+  filter(!is.na(Cause.of.Death)) %>% 
+  group_by(Cause.of.Death) %>% 
+  summarise(count = n()) %>% 
+  mutate(perc = 100*count/sum(count))
+```
+
+
+```{r}
+deaths %>% 
+  filter(!is.na(Gender) & Gender != "Transgender" & !is.na(Deadly.force)) %>% 
+  summarise(count = n()) %>% 
+  mutate(perc = count/sum(count)) %>% 
+  ggplot() + 
+  geom_bar(aes(Gender, fill = Gender)) +
+  facet_wrap( ~ Deadly.force)
+```
+```{r}
+deaths %>%
+  filter(!is.na(Gender) & Gender != "Transgender" & !is.na(Deadly.force)) %>% 
+  ggplot(aes(x = as.factor(Deadly.force), fill = as.factor(Gender))) +
+  geom_bar(aes(y = ..count.. / tapply(..count.., ..x.. , sum)[..x..]), 
+           position = "dodge") +
+  geom_text(
+    aes(
+      y = ..count.. / tapply(..count.., ..x.. , sum)[..x..],
+      label = scales::percent(..count.. / tapply(..count.., ..x.. , sum)[..x..])
+    ),
+    stat = "count",
+    position = position_dodge(0.9),
+    vjust = -0.5
+  ) +
+  xlab("Deadly.force")
+  ylab('Percent, %') +
+  scale_y_continuous(labels = scales::percent)
+```
+```{r}
+deaths %>%
+  filter(!is.na(Race) & !is.na(Deadly.force)) %>% 
+  ggplot(aes(x = Deadly.force, fill = Race)) +
+  geom_bar(aes(y = ..count.. / tapply(..count.., ..x.. , sum)[..x..]), 
+           position = "dodge") +
+  geom_text(
+    aes(y = ..count.. / tapply(..count.., ..x.. , sum)[..x..],
+      label = scales::percent(..count.. / tapply(..count.., ..x.. , sum)[..x..])),
+    stat = "count",
+    position = position_dodge(0.9),
+    vjust = -0.5
+  ) +
+  xlab("Deadly.force") +
+  ylab('Percent, %') +
+  scale_y_continuous(labels = scales::percent)
+```
+
+```{r}
+deaths %>% 
+  filter(!is.na(Gender) & Gender != "Transgender" & !is.na(Deadly.force)) %>% 
+  group_by(Gender, Deadly.force) %>% 
+  summarise(count = n()) %>% 
+  mutate(df_sum = count)
+```
+```{r}
+data("mtcars")
+
+mtcars %>%
+  ggplot(aes(x = as.factor(cyl), fill = as.factor(gear))) +
+  geom_bar(aes(y = ..count.. / tapply(..count.., ..x.. , sum)[..x..]), 
+           position = "dodge") +
+  geom_text(
+    aes(
+      y = ..count.. / tapply(..count.., ..x.. , sum)[..x..],
+      label = scales::percent(..count.. / tapply(..count.., ..x.. , sum)[..x..])
+    ),
+    stat = "count",
+    position = position_dodge(0.9),
+    vjust = -0.5
+  ) +
+  ylab('Percent of Cylinder Group, %') +
+  scale_y_continuous(labels = scales::percent)
+```
+```{r}
+mtcars
+```
+```{r}
+mtcars$gear <- as.factor(mtcars$gear)
+ggplot(data=mtcars, aes(cyl))+
+  geom_bar(aes(fill=as.factor(gear)), position="fill")
+```
+```{r}
+mtcars %>%
+  mutate(gear = factor(gear)) %>%
+  group_by(gear, cyl) %>%
+  count() %>%
+  group_by(gear) %>%
+  mutate(percentage = n/sum(n)) %>%
+  ggplot(aes(x = cyl, y = percentage, fill = gear)) +
+    geom_bar(position = 'dodge', stat = 'identity')
+```
+```{r}
+test1 <- sample(letters[1:2], 100, replace=T)
+test2 <- sample(letters[3:8], 100, replace=T)
+test <- data.frame(cbind(test1,test2))
+
+
+ggplot(test, aes(test2)) +
+  geom_bar(aes(y = (..count..)/sum(..count..))) + 
+  facet_grid(~test1) +
+  scale_y_continuous(labels = percent_format())
+```
+
+```{r}
+na.omit(deaths) %>% 
+  group_by(Deadly.force) %>% 
+  summarise(count = n())
+```
+```{r}
+deaths %>% 
+  filter(!is.na(Deadly.force)) %>% 
+  group_by(Deadly.force) %>% 
+  summarise(count = n()) %>% 
+  mutate(Percent = 100*count/sum(count))
+```
+```{r}
+deaths %>% 
+  filter(!is.na(Armed)) %>% 
+  group_by(Armed) %>% 
+  summarise(count = n()) %>% 
+  mutate(Percent = 100*count/sum(count))
+```
+```{r}
+deaths %>% 
+  filter(!is.na(Fleeing)) %>% 
+  group_by(Fleeing) %>% 
+  summarise(count = n()) %>% 
+  mutate(Percent = 100*count/sum(count))
+```
+```{r}
+deaths_full = read.csv("FE_2021_11_01.csv")
+names(deaths_full)
+```
+```{r}
+names(deaths)
+```
+

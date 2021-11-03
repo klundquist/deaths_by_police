@@ -1,0 +1,225 @@
+---
+title: "FE Cleaning"
+output: html_notebook
+---
+
+```{r}
+library(dplyr)
+library(lubridate)
+deaths = read.csv("FE_2021_11_01.csv")
+deaths
+```
+```{r}
+# delete columns that won't be used for analysis
+deaths = deaths %>% 
+  select(-Unique.ID, 
+         -Name, -Race, -Imputation.probability, -URL.of.image..PLS.NO.HOTLINKS.,
+         -Location.of.injury..address., -Location.of.death..city., -State,
+         -Location.of.death..zip.code., -Location.of.death..county.,
+         -Full.Address, -Latitude, -Longitude, -UID.Temporary, -Name.Temporary,
+         -Description.Temp, -URL.Temp, -Brief.description, 
+         -Dispositions.Exclusions.INTERNAL.USE..NOT.FOR.ANALYSIS,
+         -Supporting.document.link, -Agency.or.agencies.involved,
+         -Foreknowledge.of.mental.illness..INTERNAL.USE..NOT.FOR.ANALYSIS, -X, 
+         -X.1, -Unique.ID.formula, -Unique.identifier..redundant.
+         )
+deaths
+```
+```{r}
+# Clean up Age, Gender
+deaths <- deaths %>% 
+  mutate(Age = as.numeric(Age), 
+         Gender = na_if(Gender, ""))
+deaths
+```
+```{r}
+# Clean up Race
+deaths <- deaths %>%
+  rename(Race = Race.with.imputations) %>% 
+  mutate(Race = case_when(
+    Race == "european-American/White" ~ "European-American/White",
+    Race == "HIspanic/Latino" ~ "Hispanic/Latino",
+    TRUE ~ Race
+  )) %>% 
+  mutate(Race = na_if(Race, "Race unspecified")) %>% 
+  mutate(Race = na_if(Race, "")) 
+unique(deaths$Race)
+```
+
+```{r}
+# Clean up date
+deaths = deaths %>% 
+  mutate(Date = mdy(Date.of.injury.resulting.in.death..month.day.year.)) %>% 
+  mutate(Year = year(Date),
+         Month = month(Date)) %>% 
+  select(-Date.of.injury.resulting.in.death..month.day.year., -Date)
+deaths
+```
+```{r}
+deaths %>% 
+  group_by(Highest.level.of.force) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count))
+```
+```{r}
+deaths <- deaths %>%
+  mutate(
+    Highest.level.of.force =
+      if_else(
+        Highest.level.of.force %in% c(
+          "Asphyxiation/Restrained",
+          "Asphyxiation/Restrain",
+          "Restrain/Asphyxiation"
+        ),
+        "Asphyxiated/Restrained",
+        Highest.level.of.force
+      )
+  ) %>% 
+  mutate(
+    Highest.level.of.force = 
+      if_else(
+        Highest.level.of.force %in% c(
+          "",
+          "Chemical agent/Pepper spray",
+          "Burned/Smoke inhalation",
+          "Stabbed",
+          "Fell from a height",
+          "Undetermined",
+          "Beaten/Bludgeoned with instrument",
+          "Drug overdose",
+          "Drowned"
+        ), "Other", 
+        Highest.level.of.force
+      )
+  ) %>% 
+  rename(Cause.of.Death = Highest.level.of.force)
+deaths
+```
+```{r}
+deaths %>% 
+  group_by(Armed.Unarmed) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count))
+```
+```{r}
+deaths <- deaths %>% 
+  mutate(Armed.Unarmed = 
+           if_else(Armed.Unarmed == "Armed", 
+                   "1", Armed.Unarmed)) %>% 
+  mutate(Armed.Unarmed = 
+           if_else(Armed.Unarmed %in% c(
+             "Unarmed", "Unarmed "
+           ), "0", Armed.Unarmed)) %>% 
+  mutate(Armed.Unarmed = 
+           if_else(Armed.Unarmed %in% c(
+             "Uncertain",
+             "Gunshot",
+             "None",
+             "Duplicate of 13419?",
+             "Duplicate of 13457?"),
+             "", Armed.Unarmed)) %>% 
+  mutate(Armed.Unarmed = na_if(Armed.Unarmed, "")) %>% 
+  rename(Armed = Armed.Unarmed)
+deaths
+```
+
+```{r}
+# Remove Alleged.weapon
+deaths <- deaths %>% select(-Alleged.weapon)
+deaths
+```
+```{r}
+deaths %>% 
+  group_by(Aggressive.physical.movement) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count))
+```
+```{r}
+# I think, unfortunately I need to get rid of Aggresive.physical movement. 
+# Maybe I can try to use it later, but let's remove for now and see if we can do
+# interesting things without it. 
+deaths <- deaths %>% select(-Aggressive.physical.movement)
+deaths
+```
+```{r}
+df <- deaths %>% 
+  group_by(Fleeing.Not.fleeing) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count))
+df
+```
+```{r}
+flee_na = df$Fleeing.Not.fleeing[c(1, 6, 11, 12, 20)]
+flee_not = df$Fleeing.Not.fleeing[c(2, 9, 19)]
+flee_yes = df$Fleeing.Not.fleeing[c(3:5, 7, 8, 10, 13:18, 21)]
+deaths <- deaths %>% 
+  mutate(Fleeing.Not.fleeing = case_when(
+    Fleeing.Not.fleeing %in% flee_na ~ "",
+    Fleeing.Not.fleeing %in% flee_not ~ "0", 
+    Fleeing.Not.fleeing %in% flee_yes ~ "1"
+  )) %>% 
+  mutate(Fleeing.Not.fleeing = na_if(Fleeing.Not.fleeing, "")) %>% 
+  rename(Fleeing = Fleeing.Not.fleeing)
+deaths
+```
+```{r}
+df <- deaths %>% 
+  group_by(Intended.use.of.force..Developing.) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count))
+df
+```
+```{r}
+df_na = df$Intended.use.of.force..Developing.[c(8, 9)]
+df_no = df$Intended.use.of.force..Developing.[c(2:7)]
+df_yes = df$Intended.use.of.force..Developing.[c(1)]
+
+deaths <- deaths %>% 
+  rename(Deadly.force = Intended.use.of.force..Developing.) %>% 
+  mutate(Deadly.force = case_when(
+    Deadly.force %in% df_na ~ "",
+    Deadly.force %in% df_no ~ "0", 
+    Deadly.force %in% df_yes ~ "1"
+  )) %>% 
+  mutate(Deadly.force = na_if(Deadly.force, ""))
+deaths
+```
+```{r}
+write.csv(deaths, file = "fe_clean.csv", row.names = FALSE)
+```
+
+```{r}
+deaths <- deaths %>% 
+  mutate(Gender = as.factor(Gender),
+         Race = as.factor(Race),
+         Cause.of.Death = as.factor(Cause.of.Death),
+         Armed = as.factor(Armed), 
+         Fleeing = as.factor(Fleeing), 
+         Deadly.force = as.factor(Deadly.force))
+deaths
+```
+```{r}
+logit.overall = glm(Deadly.force ~ Age + Gender + Race + Cause.of.Death + Armed + 
+                    Fleeing + Year + Month,
+                    family = "binomial",
+                    data = deaths)
+scatter.smooth(logit.overall$fit,
+               residuals(logit.overall, type = "deviance"),
+               lpars = list(col = "red"),
+               xlab = "Fitted Probabilities",
+               ylab = "Deviance Residual Values",
+               main = "Residual Plot for\nLogistic Regression of Deaths Data")
+abline(h = 0, lty = 2)
+
+library(car)
+influencePlot(logit.overall) #Can still inspect the influence plot.
+
+summary(logit.overall) #Investigating the overall fit of the model.
+```
+
+
+
+
+
+
+
